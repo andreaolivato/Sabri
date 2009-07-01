@@ -1,0 +1,299 @@
+#!/bin/bash
+
+function usage {
+	echo "";
+	echo -e "\e[1mSabri\e[m 0.1-beta-1 [ 30 june 2009 ]";
+	echo "";
+	echo -e "\e[1mDescription\e[m :";
+	echo ""
+	echo "sabri (formerly Ssh from Automatic Bash Remote Inditement) is an ssh connection storage, able to automatically connect users to their saved hosts without prompting them for password.";
+	echo "This program uses some uncommon components. Please run $0 -c to check you correctly installed them before installing.";
+	echo ""
+	echo -e "\e[1mUsage\e[m :";
+	echo "	$0 [action]";
+	echo "	$0 -d [desc]";
+	echo -e "\e[1mArguments\e[m :";
+	echo "	-d [desc]";
+	echo "		Opens a store ssh session identified by [desc]";
+	echo "	-s";
+	echo "		Creates a new account.";
+	echo "	-c";
+	echo "		Check for required components";
+	echo "	-i";
+	echo "		Installs the sqlite3 database and creates the necessary table";
+	echo "	-r";
+	echo "		Returns the password for a stored session, identified by [desc].";
+	echo "	-l";
+	echo "		Lists all available connections names and hosts.";
+	echo "	-D";
+	echo "		Deletes a stored connection.";
+	echo "	-v";
+	echo "		Prints verbose output";
+	echo "	-h";
+	echo "		This help";
+	echo "	-e";
+	echo "		Prints usage examples";
+	echo -e "\e[1mExamples\e[m :";
+	echo "	Please run '$0 -e' to get usage examples";
+	exit;
+}
+
+function examples {
+	echo "";
+	echo -e "\e[1mSabri\e[m 0.1-beta-1 [ 30 june 2009 ]";
+	echo "";
+	echo -e "\e[1mExamples\e[m :";
+	echo "";
+	echo -e "\e[4m$0 -i\e[m";
+	echo "Installs a new database and creates the needed table structure. Will erase any previous configuration.";
+	echo "";
+	echo -e "\e[4m$0 -s\e[m";
+	echo "Creates a new account to connect to. Will ask you for connection description, host, user and pass, and then for a passphrase to encrypt data.";
+	echo "";
+	echo -e "\e[4m$0 -d [desc]\e[m";
+	echo "Connects to a previously stored connection, identified by [desc]. Will prompt for the passphrase specified during setup for data decryption.";
+	echo "";
+	echo -e "\e[4m$0 -r -d [desc]\e[m";
+	echo "Reads from the database the connection associated with [desc] and then prints the decrypted password. Will ask for the passphrase.";
+	echo -e "\e[4m$0 -D -d [desc]\e[m";
+	echo "Deletes from the database the connection associated with [desc].";
+	echo -e "\e[4m$0 -l\e[m";
+	echo "Lists all available connections.";
+	exit;
+	
+}
+
+function readpass {
+	if [ -n $1 ]; then 
+		echo "Please specify your Passphrase for password decoding";
+		read -s -p "Passhphrase : " PASSPHRASE;
+		echo "";
+		ENCPASS=`sqlite3 ~/.sabri.db "SELECT pass FROM hosts WHERE name LIKE '$1' ORDER BY id DESC LIMIT 1"`;
+		CLEANPASS=`perl -e"use Crypt::Tea;print decrypt('$ENCPASS','$PASSPHRASE')"`;
+		echo -e "The password for \e[4m$1\e[m is : \e[4m$CLEANPASS\e[m";
+	else
+		echo "You didn't specify any description. I can not retrieve your password.";
+	fi;
+}
+
+function setup {
+	echo "Please specify a description for this connection.";
+	read -p "Description : " Description;
+		
+	echo "Please enter following datas to setup new accounts.";
+	read -p "Host : " Host;
+	read -p "Username : " Username;
+	read -s -p "Password : " Password;
+	echo "";	
+	echo "Please enter passphrase to encode your password.";
+	read -s -p "Passphrase : " Passphrase;
+	
+	ENCPASS=`perl -e"use Crypt::Tea;print encrypt('$Password','$Passphrase')"`;
+	sqlite3 ~/.sabri.db "insert into hosts (name,host,user,pass) values ('$Description','"$Host"','"$Username"','"$ENCPASS"')";
+
+	echo "New host inserted!";
+	echo "You can now connect to it doing : ";
+	echo "$0 -d "$Description"";
+	
+	exit;
+}
+
+function installation {
+	
+	read -p "This action will erase any existing configuration. Are you sure you want to continue? [y/n]" ANSW;
+	CONTINUE=0;
+	
+	while [[ $CONTINUE < 1 ]]; do
+		ANSW=`echo $ANSW | tr "[:upper:]" "[:lower:]"`;
+		if [[ $ANSW == "y" ]] || [[ $ANSW == "n" ]]; then
+			CONTINUE=1;
+		else
+			echo "Please just answer with y or n";
+			read ANSW;
+		fi;
+	done;
+	
+	if [[ $ANSW == "n" ]]; then
+		echo "Aborting due to user choice";
+		exit;
+	fi;
+
+	cat /dev/null > ~/.sabri.db;
+	echo "CREATE TABLE hosts (id INTEGER PRIMARY KEY,name TEXT,host TEXT,user TEXT,pass TEXT);" > /tmp/.sshc_structure.db;
+	sqlite3 ~/.sabri.db < /tmp/.sshc_structure.db;
+	rm -f /tmp/.sshc_structure.db;
+	echo "Installation completed. You can now setup some accounts.";
+	echo "Use $0 -s to create a new account.";
+	exit;
+	
+}
+
+function list {
+
+	echo "";
+	echo "Below you can find a list of the connection you previously setup.";
+	echo "";
+	
+	LIST=`sqlite3 ~/.sabri.db "SELECT DISTINCT name,user,host FROM hosts WHERE 1"`;
+	for ROW in $LIST; do
+		Description=`echo $ROW | awk '{split($0,a,"|"); print a[1]}'`
+		User=`echo $ROW | awk '{split($0,a,"|"); print a[2]}'`
+		Host=`echo $ROW | awk '{split($0,a,"|"); print a[3]}'`
+		echo -e "\e[4m$Description\e[m : ssh "$User" -l "$Host;
+	done
+	
+	exit;
+}
+
+function delete {
+	echo "";
+	read -p "This action will erase any data about $1 connection. Are you sure that you want to continue? [y/n]" ANSW;
+	CONTINUE=0;
+	
+	while [[ $CONTINUE < 1 ]]; do
+		ANSW=`echo $ANSW | tr "[:upper:]" "[:lower:]"`;
+		if [[ $ANSW == "y" ]] || [[ $ANSW == "n" ]]; then
+			CONTINUE=1;
+		else
+			echo "Please just answer with y or n";
+			read ANSW;
+		fi;
+	done;
+	
+	if [[ $ANSW == "n" ]]; then
+		echo "Aborting due to user choice";
+		exit;
+	fi;
+	
+	sqlite3 ~/.sabri.db "DELETE FROM hosts WHERE name = '$1'";
+	echo -e "Any connection named \e[4m$1\e[m has now been deleted."
+	exit;
+}
+
+
+
+function check {
+
+	echo "";
+	echo "I will now try to locate the components I need to run correctly";
+	echo "";
+
+	CHECKS=0;
+	which sqlite3 >&/tmp/tmp_checksqlite;
+	CHECK_SQLITE=`cat /tmp/tmp_checksqlite`
+	res=`echo $CHECK_SQLITE | grep -i "which: no sqlite3"`;
+	if [[ ${#res} > 0 ]];
+	then
+		echo -e "\e[1mFatal Error\e[m : No Sqlite3 executable found!"
+		echo "	Sqlite3 program doesn't seem to be installed.";
+		echo "	It's usally shipped with most distribution so you should just run your package manager";
+		echo "	Debian/Ubuntu : # apt-get install sqlite3";
+		echo "	RedHat/Fedora/Centos : # yum install sqlite3";
+		echo "	Gentoo : # emerge sqlite3";
+		echo "	Arch : # pacman -S sqlite3";
+		echo "	More info about expect : http://expect.nist.gov/";
+	else
+		echo -e "\e[1m[OK]\e[m : Sqlite3 found"
+		(( CHECKS++ ));
+	fi
+
+	which expect >&/tmp/tmp_checkexpect;
+	CHECK_EXPECT=`cat /tmp/tmp_checkexpect`;
+	res=`echo $CHECK_EXPECT | grep -i "which: no expect"`;
+	if [[ ${#res} > 0 ]]; then
+		echo -e "\e[1mFatal Error\e[m : No Expect executable found!"
+		echo "	Expect program doesn't seem to be installed.";
+		echo "	It's usally shipped with most distribution so you should just run your package manager";
+		echo "	Debian/Ubuntu : # apt-get install expect";
+		echo "	RedHat/Fedora/Centos : # yum install expect";
+		echo "	Gentoo : # emerge expect";
+		echo "	Arch : # pacman -S expect";
+		echo "	More info about expect : http://www.sqlite.org/";
+	else
+		echo -e "\e[1m[OK]\e[m : expect found"
+		(( CHECKS++ ));
+	fi
+	
+	CHECK_TEA=`perl -e 'eval ("use Crypt::Tea");if ( $@ ) {print "no";} else {print "yes";}'`;
+	if [[ $CHECK_TEA == "yes" ]]; then
+		echo -e "\e[1m[OK]\e[m : Crypt::Tea perl module found"
+		(( CHECKS++ ));
+	else
+		echo -e "\e[1mFatal Error\e[m : No Crypt::Tea executable found!"
+		echo "	You can install it by running as root cpan and then install Crypt::Tea";
+		echo "	Example : su -c 'cpan Crypt::Tea'";
+		echo "	More info about Tea: http://search.cpan.org/dist/Crypt-TEA/TEA.pm"
+
+	fi
+	
+	if [[ $CHECKS -eq 3 ]]; then
+		echo "";
+		echo "All needed components are present on your system. You can run installation script safely.";
+		echo "$0 -i";
+		echo "";
+	else
+		echo "";
+		echo "Your system need to install one or more components before you can use Sabri. Please check your leaks and correct them before continue.";
+		echo "";
+	fi;
+	
+	
+	exit;
+}
+
+
+
+V=0;
+READPASS=0;
+DELETE=0;
+
+while getopts "hevrsid:lDc" options; do
+	case $options in
+		d) DESC=$OPTARG;;
+        h) usage;;
+		e) examples;;
+		v) V=$V+1; ;;
+		r) READPASS=1;;
+		c) check;;
+		D) DELETE=1;;
+		s) setup;;
+		i) installation;;	
+		l) list;;
+		\?) usage;;
+		*) usage;;
+        esac
+done
+
+if [ $READPASS -gt 0 ]; then
+	readpass $DESC;
+	exit;
+fi;
+
+if [ $DELETE -gt 0 ]; then
+	delete $DESC;
+	exit;
+fi;
+
+if [ -z $DESC ]; then 
+	echo "You need to specify a connection to read using -d parameter.";
+	echo "If you need help run $0 -h";
+	exit;
+fi;
+
+echo "Please enter passphrase to decode your password.";
+read -s -p "Passphrase : " Passphrase;
+
+VARS=`sqlite3 ~/.sabri.db "SELECT host,user,pass FROM hosts WHERE name LIKE '$DESC' ORDER BY id DESC LIMIT 1"`;
+
+Host=`echo $VARS | awk '{split($0,a,"|"); print a[1]}'`;
+User=`echo $VARS | awk '{split($0,a,"|"); print a[2]}'`;
+Password=`echo $VARS | awk '{split($0,a,"|"); print a[3]}'`;
+
+CLEANPASS=`perl -e"use Crypt::Tea;print decrypt('$Password','$Passphrase')"`;
+
+echo "";
+
+export HISTIGNORE="expect*";
+expect -c "spawn ssh $Host -l $User;expect 1;send \"$CLEANPASS\r\";interact;";
+
+
