@@ -16,6 +16,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Shows the help file, gives indications on how to proceed, shows parameters usage.
 function usage {
 	echo "";
 	echo -e "\e[1mSabri\e[m 0.1-beta-1 [ 30 june 2009 ]";
@@ -54,6 +55,7 @@ function usage {
 	exit;
 }
 
+# Shows detailed usage examples
 function examples {
 	echo "";
 	echo -e "\e[1mSabri\e[m 0.1-beta-1 [ 30 june 2009 ]";
@@ -79,34 +81,61 @@ function examples {
 	
 }
 
+# Shows a saved password asking for connected Passphrase and connection description
 function readpass {
+
+	# If the user specified a  description
 	if [ -n $1 ]; then 
+		
+		# Asks and retrieves Passphrase for decoding process
 		echo "Please specify your Passphrase for password decoding";
 		read -s -p "Passhphrase : " PASSPHRASE;
 		echo "";
+		
+		# Connects to DB and select the password connected to the specified description
 		ENCPASS=`sqlite3 ~/.sabri.db "SELECT pass FROM hosts WHERE name LIKE '$1' ORDER BY id DESC LIMIT 1"`;
+		
+		# Decrypt the retrieved password using Perl class Crypt::Tea
 		CLEANPASS=`perl -e"use Crypt::Tea;print decrypt('$ENCPASS','$PASSPHRASE')"`;
+		
+		# Echoes the decrypted password
 		echo -e "The password for \e[4m$1\e[m is : \e[4m$CLEANPASS\e[m";
+	
+	# If there's no description specified
 	else
+		
+		# Echoes an error
 		echo "You didn't specify any description. I can not retrieve your password.";
 	fi;
+	
+	exit;
 }
 
+# Wizard to create and store new connections
 function setup {
+
+	# Asks and store the Description for the new Connection
 	echo "Please specify a description for this connection.";
 	read -p "Description : " Description;
-		
+	
+	# Asks and store the connection parameters	
 	echo "Please enter following datas to setup new accounts.";
 	read -p "Host : " Host;
 	read -p "Username : " Username;
 	read -s -p "Password : " Password;
 	echo "";	
+	
+	# Asks and store the passphrase used for encoding the password
 	echo "Please enter passphrase to encode your password.";
 	read -s -p "Passphrase : " Passphrase;
 	
+	# Crypts the password using Perl class Crypt::Tea
 	ENCPASS=`perl -e"use Crypt::Tea;print encrypt('$Password','$Passphrase')"`;
+	
+	# Insert the new connection into the database
 	sqlite3 ~/.sabri.db "insert into hosts (name,host,user,pass) values ('$Description','"$Host"','"$Username"','"$ENCPASS"')";
 
+	# Echoes some confirmation messages
 	echo "New host inserted!";
 	echo "You can now connect to it doing : ";
 	echo "$0 -d "$Description"";
@@ -114,11 +143,14 @@ function setup {
 	exit;
 }
 
+# Creates the Sqlite3 Db, creates the database table
 function installation {
 	
+	# Asks for confirmation before proceeding
 	read -p "This action will erase any existing configuration. Are you sure you want to continue? [y/n]" ANSW;
 	CONTINUE=0;
 	
+	# Continue asking until the user inputs Y or N
 	while [[ $CONTINUE < 1 ]]; do
 		ANSW=`echo $ANSW | tr "[:upper:]" "[:lower:]"`;
 		if [[ $ANSW == "y" ]] || [[ $ANSW == "n" ]]; then
@@ -129,11 +161,13 @@ function installation {
 		fi;
 	done;
 	
+	# If the user input N then aborts the process and exits
 	if [[ $ANSW == "n" ]]; then
 		echo "Aborting due to user choice";
 		exit;
 	fi;
 
+	# Erases existing database
 	cat /dev/null > ~/.sabri.db;
 	echo "CREATE TABLE hosts (id INTEGER PRIMARY KEY,name TEXT,host TEXT,user TEXT,pass TEXT);" > /tmp/.sshc_structure.db;
 	sqlite3 ~/.sabri.db < /tmp/.sshc_structure.db;
