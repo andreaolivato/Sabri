@@ -23,7 +23,7 @@ function usage {
 	echo "";
 	echo -e "\e[1mDescription\e[m :";
 	echo ""
-	echo "sabri (formerly Ssh from Automatic Bash Remote Inditement) is an ssh connection storage, able to automatically connect users to their saved hosts without prompting them for password.";
+	echo "sabri (formerly Ssh from Automatic Bash Remote Inditement) is an ssh connections storage, able to automatically connect users to their saved hosts without prompting them for password.";
 	echo "This program uses some uncommon components. Please run $0 -c to check you correctly installed them before installing.";
 	echo ""
 	echo -e "\e[1mUsage\e[m :";

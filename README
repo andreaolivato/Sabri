@@ -1,0 +1,66 @@
+
+	sabri
+
+Ssh from Automatic Bash Remote Inditement
+
+@@ LICENCE @@
+
+		#	sabri: Ssh from Automatic Bash Remote Inditement
+		#	Copyright (C) 2009  Andrea Olivato <personal@andreaolivato.net>
+		#
+		#	This program is free software: you can redistribute it and/or modify
+		#	it under the terms of the GNU General Public License as published by
+		#	the Free Software Foundation, either version 3 of the License, or
+		#	(at your option) any later version.
+		#
+		#	This program is distributed in the hope that it will be useful,
+		#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+		#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+		#	GNU General Public License for more details.
+		#
+		#	You should have received a copy of the GNU General Public License
+		#	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+@@ DESCRIPTION @@
+
+sabri (formerly Ssh from Automatic Bash Remote Inditement) is an ssh connections storage, able to automatically connect users to their saved hosts without prompting them for password.
+
+Using sqlite3 simple DB system sabri stores connection parameters (hots, username and password) and associates them a description, which is used to identify that connection for any operation.
+
+To preserve data safety all passwords are encrypted with Crypt::Tea (in perl) before being stored. To encrypt them the user is prompted for a Passphrase which is needed to decrypt the password each time the user requests to connect or perform operations that involve the password.
+
+Automatic connection is performed using expect, which will automatically send the password to openssh server. To preserve data safety no expect script (which contains the decrypted password) is stored on the bash history (using HISTIGNORE var).
+
+@@ PRELIMINARY OPERATIONS @@
+
+If you want sabri to be available system wide (calling it just like any other script from the terminal like "$ sabri") you need to move the sabri script inside any of your $PATH directory. For example you can do something like
+
+	sudo cp sabri /usr/local/bin
+	
+In this Readme will run sabri from relative path like "$ ./sabri". If
+
+@@ DEPENDANCIES @@
+
+As shown in the description section sabri make use of uncommon components and modules which are not usually pre-installed on distributions. To avoid starting the program missing some components we created a check tool, able to identify if your system meets all requirements. We suggest to run this tool before any other operation
+
+./sabri -c
+
+The check will provide instructions in case you do not meet any requirement. Below there is a quick list of the components sabri needs.
+
+	REQUIREMENTS 
+	
+		*	sqlite3
+				[http://www.sqlite.org/]
+		*	expect
+				[http://expect.nist.gov/]
+		*	perl Crypt::Tea module	
+				[http://search.cpan.org/~pjb/Crypt-Tea-2.12/bin/tea]
+
+@@ INSTALLATION @@
+
+If all the dependancies are met it is possible to proceed to installation. The following command will create an empty database file and put inside it the table structure.
+
+./sabri -i 
+
+
+
