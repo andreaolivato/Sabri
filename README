@@ -62,5 +62,42 @@ If all the dependancies are met it is possible to proceed to installation. The f
 
 ./sabri -i 
 
+@@ USAGE 1 - CREATE CONNECTION @@
+
+To setup a new connection just run 
+
+./sabri -s
+
+The script itself will ask for all required parameters. There are still no checks on empty or wrong data, so be sure to enter the correct values when promped. 
+Remember that the first values (Description) is the identifier of that connection. Do not call two connection with the same desc!
+
+The last var asked from the script is the passphrase used for password encryption. Usually it is more conveniente to use always the same passphrase to crypt all the password, anyway no rule affects this.
+
+@@ USAGE 2 - CONNECT @@
+
+If you already stored a connection you can automatically connect to it using
+
+./sabri -d connection_description
+
+For example if you called you connection 'MyServer' just do
+
+./sabri -d MyServer
+
+You will be prompted for the passphrase specified in the setup step for password decryption.
+
+@@ USAGE 3 - LISTING @@
+
+If you can not remember which name you gave to a certain connection you can always do
+
+./sabri -l
+
+This will output the list of all the connections, with description, host and username.
+
+@@ USAGE 4 - DELETING @@
+
+If you put wrong data inside the DB or duplicated a description you can delete all occurrencies of a description doing
+
+./sabri -D -d connection_description
+
 
 
