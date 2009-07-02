@@ -169,37 +169,53 @@ function installation {
 
 	# Erases existing database
 	cat /dev/null > ~/.sabri.db;
+	
+	# Creates new structure inside the DB
 	echo "CREATE TABLE hosts (id INTEGER PRIMARY KEY,name TEXT,host TEXT,user TEXT,pass TEXT);" > /tmp/.sshc_structure.db;
 	sqlite3 ~/.sabri.db < /tmp/.sshc_structure.db;
 	rm -f /tmp/.sshc_structure.db;
+	
+	# Echoes some confirmation messages
 	echo "Installation completed. You can now setup some accounts.";
 	echo "Use $0 -s to create a new account.";
 	exit;
 	
 }
 
+# Lists all existings connection. Shows description,username and host
 function list {
 
 	echo "";
 	echo "Below you can find a list of the connection you previously setup.";
 	echo "";
 	
+	# Connects to DB and select all connections, excluding passwords.
 	LIST=`sqlite3 ~/.sabri.db "SELECT DISTINCT name,user,host FROM hosts WHERE 1"`;
+	
+	# For each connection
 	for ROW in $LIST; do
+	
+		# Split datas
 		Description=`echo $ROW | awk '{split($0,a,"|"); print a[1]}'`
 		User=`echo $ROW | awk '{split($0,a,"|"); print a[2]}'`
 		Host=`echo $ROW | awk '{split($0,a,"|"); print a[3]}'`
+		
+		# Echoes the row
 		echo -e "\e[4m$Description\e[m : ssh "$User" -l "$Host;
 	done
 	
 	exit;
 }
 
+# Delete a connection identified by Description
 function delete {
+
+	# Asks for confirmation before proceeding
 	echo "";
 	read -p "This action will erase any data about $1 connection. Are you sure that you want to continue? [y/n]" ANSW;
 	CONTINUE=0;
 	
+	# Continue asking until the user inputs Y or N
 	while [[ $CONTINUE < 1 ]]; do
 		ANSW=`echo $ANSW | tr "[:upper:]" "[:lower:]"`;
 		if [[ $ANSW == "y" ]] || [[ $ANSW == "n" ]]; then
@@ -210,12 +226,16 @@ function delete {
 		fi;
 	done;
 	
+	# If the user input N then aborts the process and exits
 	if [[ $ANSW == "n" ]]; then
 		echo "Aborting due to user choice";
 		exit;
 	fi;
 	
+	# Perform Delete on the database
 	sqlite3 ~/.sabri.db "DELETE FROM hosts WHERE name = '$1'";
+	
+	# Echoes a confirmation message
 	echo -e "Any connection named \e[4m$1\e[m has now been deleted."
 	exit;
 }
@@ -224,16 +244,22 @@ function delete {
 
 function check {
 
+	# Echoes some intro text
 	echo "";
 	echo "I will now try to locate the components I need to run correctly";
 	echo "";
 
+	# Checks for sqlite3 presence in the system using which command
 	CHECKS=0;
 	which sqlite3 >&/tmp/tmp_checksqlite;
 	CHECK_SQLITE=`cat /tmp/tmp_checksqlite`
+	
+	# If which returned an error
 	res=`echo $CHECK_SQLITE | grep -i "which: no sqlite3"`;
 	if [[ ${#res} > 0 ]];
 	then
+	
+		# Echoes the error and some instructions about sqlite3 installation
 		echo -e "\e[1mFatal Error\e[m : No Sqlite3 executable found!"
 		echo "	Sqlite3 program doesn't seem to be installed.";
 		echo "	It's usally shipped with most distribution so you should just run your package manager";
@@ -242,15 +268,25 @@ function check {
 		echo "	Gentoo : # emerge sqlite3";
 		echo "	Arch : # pacman -S sqlite3";
 		echo "	More info about expect : http://expect.nist.gov/";
+	
+	# If sqlite3 is present	
 	else
+	
+		# Echoes OK message
 		echo -e "\e[1m[OK]\e[m : Sqlite3 found"
 		(( CHECKS++ ));
+		
 	fi
 
+	# Checks for expect presence in the system using which command
 	which expect >&/tmp/tmp_checkexpect;
 	CHECK_EXPECT=`cat /tmp/tmp_checkexpect`;
+	
+	# If which returned an error
 	res=`echo $CHECK_EXPECT | grep -i "which: no expect"`;
 	if [[ ${#res} > 0 ]]; then
+	
+		# Echoes the error and some instructions about expect installation
 		echo -e "\e[1mFatal Error\e[m : No Expect executable found!"
 		echo "	Expect program doesn't seem to be installed.";
 		echo "	It's usally shipped with most distribution so you should just run your package manager";
@@ -259,16 +295,30 @@ function check {
 		echo "	Gentoo : # emerge expect";
 		echo "	Arch : # pacman -S expect";
 		echo "	More info about expect : http://www.sqlite.org/";
+	
+	# If expect is present	
 	else
+	
+		# Echoes OK message
 		echo -e "\e[1m[OK]\e[m : expect found"
 		(( CHECKS++ ));
+		
 	fi
 	
+	# Checks for perl module Crypt::Tea using eval on the use module 
 	CHECK_TEA=`perl -e 'eval ("use Crypt::Tea");if ( $@ ) {print "no";} else {print "yes";}'`;
+	
+	# If the module is installed
 	if [[ $CHECK_TEA == "yes" ]]; then
+	
+		# Echoes OK message
 		echo -e "\e[1m[OK]\e[m : Crypt::Tea perl module found"
 		(( CHECKS++ ));
+	
+	# If there's no Crypt::Tea module
 	else
+	
+		# Echoes the error and some instructions about Crypt::Tea installation
 		echo -e "\e[1mFatal Error\e[m : No Crypt::Tea executable found!"
 		echo "	You can install it by running as root cpan and then install Crypt::Tea";
 		echo "	Example : su -c 'cpan Crypt::Tea'";
@@ -276,12 +326,19 @@ function check {
 
 	fi
 	
+	# If every requirement is satisfied
 	if [[ $CHECKS -eq 3 ]]; then
+	
+		# Echoes confirmation messages and instructions to proceed with installation
 		echo "";
 		echo "All needed components are present on your system. You can run installation script safely.";
 		echo "$0 -i";
 		echo "";
+		
+	# If there's even just one error
 	else
+	
+		# Echoes the error
 		echo "";
 		echo "Your system need to install one or more components before you can use Sabri. Please check your leaks and correct them before continue.";
 		echo "";
@@ -292,57 +349,73 @@ function check {
 }
 
 
-
+# Initialize some values
 V=0;
 READPASS=0;
 DELETE=0;
 
+# Get parameters. Only -d (description) requires an argument
 while getopts "hevrsid:lDc" options; do
 	case $options in
-		d) DESC=$OPTARG;;
-        h) usage;;
-		e) examples;;
-		v) V=$V+1; ;;
-		r) READPASS=1;;
-		c) check;;
-		D) DELETE=1;;
-		s) setup;;
-		i) installation;;	
-		l) list;;
-		\?) usage;;
-		*) usage;;
-        esac
+		d) DESC=$OPTARG;;		# Connection description 
+        h) usage;;				# Launches usage instructions (help)
+		e) examples;;			# Launches usage examples
+		v) V=$V+1; ;;			# Turn on verbose mode
+		r) READPASS=1;;			# Print a decrypted password (requires -d)
+		c) check;;				# Checks for requirements and helps user on installing them
+		D) DELETE=1;;			# Deletes a connection (requires -d)
+		s) setup;;				# Create a new connection
+		i) installation;;		# Create a new empty DB
+		l) list;;				# Lists all connections
+		\?) usage;;				# Launches usage instructions (help)
+		*) usage;;				# Launches usage instructions (help)
+	esac
 done
 
+# If got the -r option
 if [ $READPASS -gt 0 ]; then
+
+	# Launches readpass function with -d value as argument
 	readpass $DESC;
 	exit;
+	
 fi;
 
+# If got the -D option
 if [ $DELETE -gt 0 ]; then
+	
+	# Launches delete function with -d value as argument
 	delete $DESC;
 	exit;
 fi;
 
+# If no -d option was specified
 if [ -z $DESC ]; then 
+
+	# Echoes some error messages and exits
 	echo "You need to specify a connection to read using -d parameter.";
 	echo "If you need help run $0 -h";
 	exit;
+	
 fi;
 
+# Asks the user for the Passphrase, needed for password decrypt
 echo "Please enter passphrase to decode your password.";
 read -s -p "Passphrase : " Passphrase;
 
+# Queries the database to get informations about wanted connection
 VARS=`sqlite3 ~/.sabri.db "SELECT host,user,pass FROM hosts WHERE name LIKE '$DESC' ORDER BY id DESC LIMIT 1"`;
 
+# Splits results and assign them to variables
 Host=`echo $VARS | awk '{split($0,a,"|"); print a[1]}'`;
 User=`echo $VARS | awk '{split($0,a,"|"); print a[2]}'`;
 Password=`echo $VARS | awk '{split($0,a,"|"); print a[3]}'`;
 
+# Decrypts the password using Perl class Crypt::Tea
 CLEANPASS=`perl -e"use Crypt::Tea;print decrypt('$Password','$Passphrase')"`;
 
+# Launches expect script for Ssh connection after having excluded that from bash history
 echo "";
-
 export HISTIGNORE="expect*";
 expect -c "spawn ssh $Host -l $User;expect 1;send \"$CLEANPASS\r\";interact;";
 
